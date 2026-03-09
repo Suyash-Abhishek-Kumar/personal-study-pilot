@@ -15,9 +15,10 @@ AI-powered study assistant that converts PDF study material into flashcards and 
 - NLTK
 
 ## Run the project
-
+'''
 pip install -r requirements.txt
 uvicorn app:app --reload
+'''
 
 Open:
 http://127.0.0.1:8000/docs
