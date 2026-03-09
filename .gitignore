@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+uploads/
+*.pyc
+*.pyo
+*.pyd
+*.env
+nltk_data/
+.cache/
+.huggingface/
