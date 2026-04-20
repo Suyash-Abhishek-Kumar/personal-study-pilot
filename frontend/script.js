@@ -1,11 +1,59 @@
+const fileInput = document.getElementById("pdfFile");
+const uploadBtn = document.getElementById("uploadBtn");
+const uploadBox = document.getElementById("uploadBox");
+
+console.log("Script loaded", {fileInput, uploadBtn, uploadBox});
+
+uploadBtn.addEventListener("click", function(e) {
+    e.preventDefault();
+    uploadPDF();
+});
+
+fileInput.addEventListener("change", function() {
+    console.log("File selected:", this.files[0]);
+    uploadBtn.disabled = !this.files[0];
+    if (this.files[0]) {
+        uploadBox.style.borderColor = "#764ba2";
+        uploadBox.querySelector(".upload-text").textContent = this.files[0].name;
+    }
+});
+
+uploadBox.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    uploadBox.style.borderColor = "#764ba2";
+    uploadBox.style.background = "#f0f2ff";
+});
+
+uploadBox.addEventListener("dragleave", () => {
+    uploadBox.style.borderColor = "#667eea";
+    uploadBox.style.background = "#f8f9ff";
+});
+
+uploadBox.addEventListener("drop", (e) => {
+    e.preventDefault();
+    uploadBox.style.borderColor = "#667eea";
+    uploadBox.style.background = "#f8f9ff";
+    
+    const files = e.dataTransfer.files;
+    if (files.length && files[0].type === "application/pdf") {
+        fileInput.files = files;
+        uploadBtn.disabled = false;
+        uploadBox.querySelector(".upload-text").textContent = files[0].name;
+    }
+});
+
 async function uploadPDF() {
+    console.log("uploadPDF called");
     const fileInput = document.getElementById("pdfFile");
     const file = fileInput.files[0];
+    console.log("File:", file);
 
     const errorDiv = document.getElementById("error");
     const loading = document.getElementById("loading");
+    const results = document.getElementById("results");
 
     errorDiv.innerText = "";
+    results.classList.add("hidden");
 
     if (!file) {
         errorDiv.innerText = "Please select a PDF file.";
@@ -24,8 +72,10 @@ async function uploadPDF() {
         });
 
         let data = await response.json();
+        console.log("Response data:", data);
 
         loading.classList.add("hidden");
+        results.classList.remove("hidden");
 
         if (data.error) {
             errorDiv.innerText = data.error;
@@ -36,13 +86,14 @@ async function uploadPDF() {
         document.getElementById("text").innerText = data.text_preview;
 
         // KEYWORDS
-        let keywordList = document.getElementById("keywords");
-        keywordList.innerHTML = "";
+        let keywordDiv = document.getElementById("keywords");
+        keywordDiv.innerHTML = "";
 
         data.keywords.forEach(k => {
-            let li = document.createElement("li");
-            li.innerText = k;
-            keywordList.appendChild(li);
+            let tag = document.createElement("div");
+            tag.className = "keyword-tag";
+            tag.innerText = k;
+            keywordDiv.appendChild(tag);
         });
 
         // FLASHCARDS
@@ -50,26 +101,30 @@ async function uploadPDF() {
         flashDiv.innerHTML = "";
 
         data.flashcards.forEach(fc => {
-            let div = document.createElement("div");
-            div.className = "flashcard";
+            let card = document.createElement("div");
+            card.className = "flashcard";
+
+            let content = document.createElement("div");
+            content.className = "flashcard-content";
+            content.innerHTML = `<b>Q:</b> ${fc.question}`;
 
             let showingAnswer = false;
 
-            div.innerHTML = `<b>Q:</b> ${fc.question}`;
-
-            div.onclick = () => {
+            card.onclick = () => {
                 if (showingAnswer) {
-                    div.innerHTML = `<b>Q:</b> ${fc.question}`;
+                    content.innerHTML = `<b>Q:</b> ${fc.question}`;
                 } else {
-                    div.innerHTML = `<b>A:</b> ${fc.answer}`;
+                    content.innerHTML = `<b>A:</b> ${fc.answer}`;
                 }
                 showingAnswer = !showingAnswer;
             };
 
-            flashDiv.appendChild(div);
+            card.appendChild(content);
+            flashDiv.appendChild(card);
         });
 
     } catch (err) {
+        console.error("Error:", err);
         loading.classList.add("hidden");
         errorDiv.innerText = "Error connecting to backend.";
     }

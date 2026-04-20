@@ -1,32 +1,72 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Personal Study Pilot</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <div class="container">
+        <header>
+            <h1>📚 Personal Study Pilot</h1>
+            <p class="subtitle">Transform your PDFs into interactive study materials</p>
+        </header>
 
-<h1>📚 Personal Study Pilot</h1>
+        <div class="upload-section">
+            <div class="upload-box" id="uploadBox">
+                <input type="file" id="pdfFile" accept=".pdf" hidden>
+                <label for="pdfFile" class="upload-label">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <span class="upload-text">Click to upload PDF</span>
+                    <span class="upload-hint">or drag and drop</span>
+                </label>
+            </div>
+            <button type="button" id="uploadBtn" class="btn-primary" disabled>Analyze PDF</button>
+        </div>
 
-<div class="upload-box">
-    <input type="file" id="pdfFile">
-    <button onclick="uploadPDF()">Upload PDF</button>
-</div>
+        <div id="loading" class="loading hidden">
+            <div class="spinner"></div>
+            <p>Processing your PDF...</p>
+        </div>
 
-<div id="loading" class="hidden">⏳ Processing PDF...</div>
+        <div id="error" class="error-message"></div>
 
-<div id="error" class="error"></div>
+        <div id="results" class="results hidden">
+            <div class="card">
+                <div class="card-header">
+                    <h2>📄 Text Preview</h2>
+                </div>
+                <div class="card-body">
+                    <p id="text" class="text-preview"></p>
+                </div>
+            </div>
 
-<h2>📄 Text Preview</h2>
-<p id="text"></p>
+            <div class="card">
+                <div class="card-header">
+                    <h2>🔑 Key Concepts</h2>
+                </div>
+                <div class="card-body">
+                    <div id="keywords" class="keywords-grid"></div>
+                </div>
+            </div>
 
-<h2>🔑 Keywords</h2>
-<ul id="keywords"></ul>
+            <div class="card">
+                <div class="card-header">
+                    <h2>🧠 Flashcards</h2>
+                    <span class="flashcard-hint">Click to flip</span>
+                </div>
+                <div class="card-body">
+                    <div id="flashcards" class="flashcards-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-<h2>🧠 Flashcards</h2>
-<div id="flashcards"></div>
-
-<script src="script.js"></script>
-
+    <script src="script.js"></script>
 </body>
 </html>
