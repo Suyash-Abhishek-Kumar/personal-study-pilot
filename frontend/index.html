@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Study Pilot</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Study Pilot</h2>
+            </div>
+            <nav class="sidebar-menu">
+                <a href="#" class="menu-item active" data-target="upload-page">
+                    <i data-lucide="upload"></i> Upload
+                </a>
+                <a href="#" class="menu-item disabled" data-target="contents-page" id="nav-contents">
+                    <i data-lucide="layout-list"></i> Contents
+                </a>
+                <a href="#" class="menu-item disabled" data-target="summary-page" id="nav-summary">
+                    <i data-lucide="file-text"></i> Summary
+                </a>
+                <a href="#" class="menu-item disabled" data-target="flashcards-page" id="nav-flashcards">
+                    <i data-lucide="credit-card"></i> Flashcards
+                </a>
+                <a href="#" class="menu-item disabled" data-target="questions-page" id="nav-questions">
+                    <i data-lucide="credit-card"></i> Questions
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            
+            <!-- Upload Page -->
+            <section id="upload-page" class="page active">
+                <div class="upload-container">
+                    <h1>Personal Study Pilot</h1>
+                    <p class="subtitle">Upload your study material in PDF format to generate insights and flashcards instantly.</p>
+                    
+                    <div class="upload-box" id="upload-box">
+                        <i data-lucide="file-up" class="upload-icon"></i>
+                        <p>Drag & drop your PDF here or click to browse</p>
+                        <input type="file" id="file-input" accept="application/pdf" hidden>
+                        <p class="selected-file-name" id="selected-file-name"></p>
+                    </div>
+
+                    <button id="generate-btn" class="primary-btn" type="button" disabled>
+                    <span>Generate Study Material</span>
+                    <i data-lucide="sparkles"></i>
+                    </button>
+
+                    <div id="loading-state" class="loading-state hidden">
+                        <div class="spinner"></div>
+                        <p>Processing your document... This might take a moment.</p>
+                    </div>
+                    
+                    <div id="error-message" class="error-message hidden">
+                        <i data-lucide="alert-circle"></i>
+                        <span id="error-text">Upload failed. Please try again.</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Contents Page -->
+            <section id="contents-page" class="page">
+                <header class="page-header">
+                    <h1>Contents</h1>
+                    <p>Overview of your study material</p>
+                </header>
+                
+                <div class="content-body">
+                    <div class="keywords-section">
+                        <h2>Keywords</h2>
+                        <div id="keywords-container" class="keywords-container">
+                            <!-- Keywords generated dynamically -->
+                        </div>
+                    </div>
+                    
+                    <div class="preview-section">
+                        <h2>Text Preview</h2>
+                        <div class="text-card">
+                            <p id="text-preview-container"></p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Summary Page -->
+            <section id="summary-page" class="page">
+                <header class="page-header">
+                    <h1>Summary</h1>
+                    <p>Condensed text chunks focused on readability</p>
+                </header>
+                
+                <div class="content-body">
+                    <div id="summary-container" class="summary-container">
+                        <!-- Summary paragraphs dynamically set -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Flashcards Page -->
+            <section id="flashcards-page" class="page">
+                <header class="page-header">
+                    <header class="page-header">
+                        <div class="page-header-row">
+                            <div>
+                                <h1>Flashcards</h1>
+                                <p>Click a card to reveal the answer</p>
+                            </div>
+                            <button id="download-flashcards-btn" class="secondary-btn">
+                                <i data-lucide="download"></i>
+                                <span>Download PDF</span>
+                            </button>
+                        </div>
+                </header>
+                
+                <div class="content-body">
+                    <div id="flashcards-container" class="flashcards-container">
+                        <!-- Flashcards generated dynamically -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Questions Page -->
+             <section id="questions-page" class="page">
+                <header class="page-header">
+                    <h1>Difficult Questions</h1>
+                    <p>Challenging questions to test your understanding</p>
+                </header>
+                <div class="content-body">
+                    <div id="questions-container" class="questions-container">
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Initialize icons -->
+    <script>
+      lucide.createIcons();
+    </script>
+    <script src="script.js"></script>
+</body>
+</html>

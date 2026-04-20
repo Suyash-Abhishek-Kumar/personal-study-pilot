@@ -3,10 +3,20 @@ import shutil
 import os
 
 from pdf_processor import extract_text_from_pdf
-from ai_module import extract_keywords, generate_flashcards
+from ai_module import extract_keywords, generate_flashcards, generate_difficult_questions
 
+
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Adjust in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 UPLOAD_FOLDER = "uploads"
 
@@ -30,11 +40,14 @@ async def upload_pdf(file: UploadFile = File(...)):
 
     flashcards = generate_flashcards(text)
 
+    difficult_questions = generate_difficult_questions(text)
+
     preview_text = text[:1000]
 
     return {
         "filename": file.filename,
         "text_preview": preview_text,
         "keywords": keywords,
-        "flashcards": flashcards
+        "flashcards": flashcards,
+        "questions": difficult_questions
     }
