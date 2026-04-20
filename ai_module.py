@@ -2,7 +2,11 @@ from keybert import KeyBERT
 import nltk
 from nltk.tokenize import sent_tokenize
 
-nltk.download("punkt")
+for resource in ["punkt", "punkt_tab"]:
+    try:
+        nltk.download(resource, quiet=True)
+    except Exception:
+        pass
 
 kw_model = KeyBERT()
 
@@ -25,7 +29,7 @@ def generate_flashcards(text):
 
     for s in sentences[:5]:
         flashcards.append({
-            "question": "Explain the following concept:",
+            "question": f"What does this mean: {s[:50]}?",
             "answer": s
         })
 

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Personal Study Pilot</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h1>📚 Personal Study Pilot</h1>
+
+<div class="upload-box">
+    <input type="file" id="pdfFile">
+    <button onclick="uploadPDF()">Upload PDF</button>
+</div>
+
+<div id="loading" class="hidden">⏳ Processing PDF...</div>
+
+<div id="error" class="error"></div>
+
+<h2>📄 Text Preview</h2>
+<p id="text"></p>
+
+<h2>🔑 Keywords</h2>
+<ul id="keywords"></ul>
+
+<h2>🧠 Flashcards</h2>
+<div id="flashcards"></div>
+
+<script src="script.js"></script>
+
+</body>
+</html>

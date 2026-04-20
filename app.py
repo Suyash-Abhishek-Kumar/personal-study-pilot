@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File
 import shutil
 import os
-
+import uuid
 from pdf_processor import extract_text_from_pdf
 from ai_module import extract_keywords, generate_flashcards
 
@@ -19,7 +19,8 @@ async def upload_pdf(file: UploadFile = File(...)):
     if not file.filename.endswith(".pdf"):
         return {"error": "Only PDF files allowed"}
 
-    file_path = os.path.join(UPLOAD_FOLDER, file.filename)
+    unique_name = f"{uuid.uuid4()}_{file.filename}"
+    file_path = os.path.join(UPLOAD_FOLDER, unique_name)
 
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
@@ -31,6 +32,9 @@ async def upload_pdf(file: UploadFile = File(...)):
     flashcards = generate_flashcards(text)
 
     preview_text = text[:1000]
+
+    if not text.strip():
+        return {"error": "No readable text found in PDF"}
 
     return {
         "filename": file.filename,
