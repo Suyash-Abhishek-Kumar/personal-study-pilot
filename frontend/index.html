@@ -74,6 +74,11 @@
                 <header class="page-header">
                     <h1>Contents</h1>
                     <p>Overview of your study material</p>
+                    
+                    <div class="search-container">
+                        <i data-lucide="search" class="search-icon"></i>
+                        <input type="text" id="search-input" placeholder="Search the text preview (partial & case-insensitive)...">
+                    </div>
                 </header>
                 
                 <div class="content-body">
@@ -87,6 +92,7 @@
                     <div class="preview-section">
                         <h2>Text Preview</h2>
                         <div class="text-card">
+                            <p id="search-no-results" class="hidden">No matches found for your search.</p>
                             <p id="text-preview-container"></p>
                         </div>
                     </div>

@@ -11,7 +11,7 @@ console.log("APP STARTED");
 document.addEventListener("DOMContentLoaded", () => {
     initNavigation();
     initFileUpload();
-    initDownloadFlashcards();
+    initSearch(); // Initialize live search
     renderPage(); // Initial render
 });
 
@@ -22,13 +22,12 @@ function initNavigation() {
     menuItems.forEach(item => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
-            
+
             const targetId = item.getAttribute('data-target');
-            
+
             // Allow navigation to data pages ONLY if appData exists
             if (targetId !== 'upload-page' && !appData) {
-                alert("Upload and generate 2 content first");
-                console.log(targetId, appData);
+                alert("Upload and generate content first");
                 return;
             }
 
@@ -52,7 +51,7 @@ function renderPage() {
         } else {
             item.classList.remove('active');
         }
-        
+
         // Un-disable menu items if appData is present
         if (appData && item.getAttribute('data-target') !== 'upload-page') {
             item.classList.remove('disabled');
@@ -70,8 +69,24 @@ function renderPage() {
     if (targetPage) {
         targetPage.classList.add('active');
     }
+
+    // 4. Force back to upload if data pages accessed without data
+    if (currentPage !== 'upload-page' && !appData) {
+        alert("Upload and generate content first");
+        setCurrentPage('upload-page');
+    }
 }
 
+function showErrorMsg(msg) {
+    const errorMessage = document.getElementById('error-message');
+    const erroText = document.getElementById('error-text');
+    errorMessage.classList.remove('hidden');
+    erroText.textContent = msg;
+}
+
+function hideErrorMsg() {
+    document.getElementById('error-message').classList.add('hidden');
+}
 
 // --- FILE UPLOAD LOGIC ---
 function initFileUpload() {
@@ -104,29 +119,42 @@ function initFileUpload() {
     uploadBox.addEventListener('drop', (e) => {
         e.preventDefault();
         uploadBox.classList.remove('dragover');
-        
+
         if (e.dataTransfer.files.length) {
-            const droppedFile = e.dataTransfer.files[0];
-            if (droppedFile.type === "application/pdf") {
-                handleFileSelection(droppedFile);
-            } else {
-                alert("Please drop a valid PDF file.");
-            }
+            handleFileSelection(e.dataTransfer.files[0]);
         }
     });
 
     function handleFileSelection(file) {
+        hideErrorMsg();
+
+        // Validation Checks
+        if (file.type !== "application/pdf") {
+            showErrorMsg("Please upload a valid PDF file. Other formats are not supported.");
+            selectedFile = null;
+            generateBtn.setAttribute('disabled', 'true');
+            selectFileText.textContent = "";
+            return;
+        }
+
+        if (file.size === 0) {
+            showErrorMsg("The uploaded file is empty or corrupted. Please try a different file.");
+            selectedFile = null;
+            generateBtn.setAttribute('disabled', 'true');
+            selectFileText.textContent = "";
+            return;
+        }
+
         // ONLY update the selected file state, do not touch appData
         selectedFile = file;
-        
         selectFileText.textContent = `Selected: ${file.name}`;
         generateBtn.removeAttribute('disabled');
-        document.getElementById('error-message').classList.add('hidden');
     }
 
-    // Button click triggers API
+    // Button click triggers API (Debounced immediately via disable state)
     generateBtn.addEventListener('click', (e) => {
-        e.preventDefault(); // Just in case it tries to submit randomly
+        e.preventDefault();
+        if (generateBtn.hasAttribute('disabled')) return; // Extra check to prevent duplicate clicks
         processFile();
     });
 }
@@ -141,232 +169,83 @@ async function processFile() {
     const errorMessage = document.getElementById('error-message');
 
     // UI Updates
-    generateBtn.setAttribute('disabled', 'true');
+    generateBtn.setAttribute('disabled', 'true'); // Debounce block
     generateBtn.classList.add('hidden');
-    errorMessage.classList.add('hidden');
+    hideErrorMsg();
     loadingState.classList.remove('hidden');
 
     const formData = new FormData();
     formData.append("file", selectedFile);
 
+    // Timeout handling using AbortController
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 35000); // 35 seconds timeout
+
     try {
         const response = await fetch(API_URL, {
             method: "POST",
-            body: formData
+            body: formData,
+            signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
         }
 
         const responseData = await response.json();
-        
+
+        // Handle invalid/empty JSON object cases gracefully
+        if (!responseData || typeof responseData !== 'object') {
+            throw new Error("Received an invalid response from the server.");
+        }
+
         if (responseData.error) {
             throw new Error(responseData.error);
         }
 
-        // Store API successfully response cleanly without clearing selected file
+        // Store API efficiently, clearing previous state fully before injection
+        appData = null;
         appData = responseData;
-        console.log(appData)
-        
+
+        // Reset Search Input on new upload
+        document.getElementById("search-input").value = "";
+        document.getElementById("search-no-results").classList.add("hidden");
+
         // Populate DOM elements
         populateContentsPage();
         populateSummaryPage();
         populateFlashcardsPage();
-        populateQuestionsPage();
 
         // Successful Redirect
         setCurrentPage('contents-page');
 
     } catch (error) {
         console.error("Upload error:", error);
-        errorMessage.classList.remove('hidden');
-        document.getElementById('error-text').textContent = error.message.includes("Failed to fetch") 
-            ? "Network error: Make sure FastAPI server is running with CORS." 
-            : `Upload failed: ${error.message}`;
-            
+
+        if (error.name === 'AbortError') {
+            showErrorMsg("Request timed out. The backend took too long to process the document.");
+        } else if (error.message.includes("Failed to fetch")) {
+            showErrorMsg("Network error: Cannot connect to server. Please ensure the backend is running.");
+        } else {
+            showErrorMsg(`Upload failed: ${error.message}`);
+        }
+
     } finally {
-        generateBtn.classList.remove('hidden');
+        clearTimeout(timeoutId);
         loadingState.classList.add('hidden');
-        
+        generateBtn.classList.remove('hidden');
+
+        // If file exists, retain ability to try generating again
         if (selectedFile) {
-             generateBtn.removeAttribute('disabled');
+            generateBtn.removeAttribute('disabled');
         }
     }
-}
-
-function formatTextPreview(rawText) {
-    if (!rawText) return "<p>No preview text available.</p>";
-
-    const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-    let html = '';
-    let bulletBuffer = [];
-
-    const isHeading = (line) => {
-        // Short lines with no punctuation ending, or lines with dashes like "Adversarial search Methods-Game"
-        return line.length < 60 && !line.endsWith('.') && !line.startsWith('•') && !/^\d/.test(line);
-    };
-
-    const isDate = (line) => /^\d{2}\/\d{2}\/\d{2,4}/.test(line);
-    const isBullet = (line) => line.startsWith('•') || line.startsWith('-');
-
-    const flushBullets = () => {
-        if (bulletBuffer.length > 0) {
-            html += '<ul>' + bulletBuffer.map(b => `<li>${b}</li>`).join('') + '</ul>';
-            bulletBuffer = [];
-        }
-    };
-
-    lines.forEach(line => {
-        // Skip date/page number lines like "19/12/23 1"
-        if (isDate(line)) return;
-
-        if (isBullet(line)) {
-            // Strip the bullet character and add to buffer
-            bulletBuffer.push(line.replace(/^[•\-]\s*/, ''));
-        } else if (isHeading(line)) {
-            flushBullets();
-            html += `<h3 class="preview-heading">${line}</h3>`;
-        } else {
-            flushBullets();
-            html += `<p>${line}</p>`;
-        }
-    });
-
-    flushBullets(); // flush any remaining bullets
-    return html;
-}
-
-function initDownloadFlashcards() {
-    const btn = document.getElementById('download-flashcards-btn');
-    if (!btn) return;
-
-    btn.addEventListener('click', () => {
-        if (!appData || !appData.flashcards?.length) return;
-
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const margin = 50;
-        const usableWidth = pageWidth - margin * 2;
-        let y = margin;
-
-        // Title
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(22);
-        doc.setTextColor(99, 102, 241); // indigo
-        doc.text('Flashcards', margin, y);
-        y += 10;
-
-        // Underline
-        doc.setDrawColor(99, 102, 241);
-        doc.setLineWidth(1.5);
-        doc.line(margin, y, pageWidth - margin, y);
-        y += 30;
-
-        appData.flashcards.forEach((card, idx) => {
-            const question = card.question || 'N/A';
-            const answer = card.answer || 'N/A';
-
-            // Wrap text to calculate height needed
-            const qLines = doc.splitTextToSize(`Q: ${question}`, usableWidth - 20);
-            const aLines = doc.splitTextToSize(`A: ${answer}`, usableWidth - 20);
-            const cardHeight = (qLines.length + aLines.length) * 14 + 50;
-
-            // Page break if needed
-            if (y + cardHeight > pageHeight - margin) {
-                doc.addPage();
-                y = margin;
-            }
-
-            // Card background
-            doc.setFillColor(249, 250, 251);
-            doc.setDrawColor(229, 231, 235);
-            doc.setLineWidth(0.5);
-            doc.roundedRect(margin, y, usableWidth, cardHeight, 8, 8, 'FD');
-
-            // Card number badge
-            doc.setFillColor(99, 102, 241);
-            doc.roundedRect(margin + 10, y + 10, 28, 16, 4, 4, 'F');
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(9);
-            doc.setTextColor(255, 255, 255);
-            doc.text(`${idx + 1}`, margin + 24, y + 22, { align: 'center' });
-
-            // Question
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(11);
-            doc.setTextColor(55, 65, 81);
-            doc.text(qLines, margin + 16, y + 36);
-
-            // Divider
-            const dividerY = y + 36 + qLines.length * 14 + 4;
-            doc.setDrawColor(199, 210, 254);
-            doc.line(margin + 10, dividerY, margin + usableWidth - 10, dividerY);
-
-            // Answer
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(10);
-            doc.setTextColor(75, 85, 99);
-            doc.text(aLines, margin + 16, dividerY + 16);
-
-            y += cardHeight + 16;
-        });
-
-        doc.save('flashcards.pdf');
-    });
 }
 
 
 // --- DOM POPULATION LOGIC ---
-
-function populateQuestionsPage() {
-    if (!appData) return;
-
-    const container = document.getElementById('questions-container');
-    container.innerHTML = "";
-
-    const questions = appData.questions || [];
-
-    if (questions.length === 0) {
-        container.innerHTML = "<p>No questions generated.</p>";
-        return;
-    }
-
-    // Group questions by type
-    const groups = {};
-    questions.forEach(q => {
-        const type = q.type || "General";
-        if (!groups[type]) groups[type] = [];
-        groups[type].push(q);
-    });
-
-    Object.entries(groups).forEach(([type, qs]) => {
-        // Section heading per type
-        const heading = document.createElement("h2");
-        heading.className = "question-type-heading";
-        heading.textContent = type;
-        container.appendChild(heading);
-
-        qs.forEach((q, idx) => {
-            const card = document.createElement("div");
-            card.className = "question-card";
-            card.innerHTML = `
-                <div class="question-header">
-                    <span class="question-number">Q${idx + 1}</span>
-                    <p class="question-text">${q.question}</p>
-                </div>
-                <div class="answer-body">
-                    <span class="answer-label">Answer</span>
-                    <p class="answer-text">${q.answer}</p>
-                </div>
-            `;
-            container.appendChild(card);
-        });
-    });
-}
 
 function populateContentsPage() {
     if (!appData) return;
@@ -374,22 +253,74 @@ function populateContentsPage() {
     const textPreviewContainer = document.getElementById('text-preview-container');
     const keywordsContainer = document.getElementById('keywords-container');
 
-    // Use innerHTML instead of textContent
-    textPreviewContainer.innerHTML = formatTextPreview(appData.text_preview);
+    // Handle Image-PDFs or Unextractable text graceful fallback
+    const rawText = appData.text_preview || "";
+    if (rawText.trim() === "") {
+        textPreviewContainer.innerHTML = `<p class="empty-state-message">No readable text found. We detected an image-based PDF or empty document. Text extraction is not supported for this format.</p>`;
+    } else {
+        textPreviewContainer.textContent = rawText;
+    }
 
+    // Set keywords (deduplicated)
     keywordsContainer.innerHTML = "";
-    const keywords = appData.keywords || [];
+    const rawKeywords = appData.keywords || [];
+    const uniqueKeywords = Array.from(new Set(rawKeywords)); // Enforce deduplication
 
-    if (keywords.length === 0) {
-        keywordsContainer.innerHTML = "<p>No keywords identified.</p>";
+    if (uniqueKeywords.length === 0) {
+        keywordsContainer.innerHTML = "<p class='empty-state-message'>No keywords identified from this document.</p>";
         return;
     }
 
-    keywords.forEach(kw => {
+    uniqueKeywords.forEach(kw => {
         const span = document.createElement("span");
         span.className = "keyword-pill";
         span.textContent = kw;
         keywordsContainer.appendChild(span);
+    });
+}
+
+// Search Logic implementation (Fuzzy & Case Insensitive)
+function initSearch() {
+    const searchInput = document.getElementById("search-input");
+    const searchNoResults = document.getElementById("search-no-results");
+    const previewContainer = document.getElementById('text-preview-container');
+
+    searchInput.addEventListener("input", (e) => {
+        if (!appData) return;
+
+        const rawText = appData.text_preview || "";
+        const query = e.target.value.toLowerCase().trim();
+
+        // Graceful skip if empty state
+        if (rawText.trim() === "" || previewContainer.querySelector('.empty-state-message')) {
+            return;
+        }
+
+        if (query === "") {
+            // Reset to pure text
+            previewContainer.innerHTML = "";
+            previewContainer.textContent = rawText;
+            searchNoResults.classList.add("hidden");
+            return;
+        }
+
+        // Execute Case-Insensitive, Partial Match
+        const regex = new RegExp(`(${query.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')})`, 'gi');
+        const hasMatch = regex.test(rawText);
+
+        if (hasMatch) {
+            // Escapes safe HTML to prevent XSS string injection issues during `.replace`
+            const safeText = document.createElement('div');
+            safeText.textContent = rawText;
+            const htmlString = safeText.innerHTML.replace(regex, `<span class="highlighted-text">$1</span>`);
+
+            previewContainer.innerHTML = htmlString;
+            searchNoResults.classList.add("hidden");
+        } else {
+            previewContainer.innerHTML = "";
+            previewContainer.textContent = rawText;
+            searchNoResults.classList.remove("hidden");
+        }
     });
 }
 
@@ -400,11 +331,17 @@ function populateSummaryPage() {
     summaryContainer.innerHTML = "";
 
     const rawText = appData.text_preview || "";
-    
-    // Split the text into paragraphs based on sentence structure
-    const sentences = rawText.match(/[^.!?]+[.!?]+/g) || [rawText];
+    if (rawText.trim() === "") {
+        summaryContainer.innerHTML = "<p class='empty-state-message'>No summary could be extracted from this document context.</p>";
+        return;
+    }
+
+    // Split the text into paragraphs based on sentence structure cleanly
+    // Handling specific line break anomalies reliably
+    const cleanText = rawText.replace(/\n+/g, ' ');
+    const sentences = cleanText.match(/[^.!?]+[.!?]+/g) || [cleanText];
     const paragraphs = [];
-    
+
     let currentParagraph = "";
     sentences.forEach(sentence => {
         currentParagraph += sentence.trim() + " ";
@@ -414,13 +351,13 @@ function populateSummaryPage() {
             currentParagraph = "";
         }
     });
-    
+
     if (currentParagraph.trim().length > 0) {
         paragraphs.push(currentParagraph.trim());
     }
 
     if (paragraphs.length === 0) {
-        summaryContainer.innerHTML = "<p>Could not extract a meaningful summary.</p>";
+        summaryContainer.innerHTML = "<p class='empty-state-message'>No comprehensive summary could be extracted.</p>";
         return;
     }
 
@@ -438,10 +375,13 @@ function populateFlashcardsPage() {
     const container = document.getElementById('flashcards-container');
     container.innerHTML = "";
 
-    const flashcards = appData.flashcards || [];
+    const allFlashcards = appData.flashcards || [];
+
+    // Enforce flashcard limit logically to prevent loop overflow (Max 5)
+    const flashcards = allFlashcards.slice(0, 5);
 
     if (flashcards.length === 0) {
-        container.innerHTML = "<p>No flashcards generated.</p>";
+        container.innerHTML = "<p class='empty-state-message'>No valid flashcards generated from this text.</p>";
         return;
     }
 
